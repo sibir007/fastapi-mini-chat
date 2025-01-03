@@ -278,19 +278,16 @@ from app.users.dao import UserDAO
 from app.users.models import User
 
 
-CONFIG: Config = Config.get_instance()
-TOKEN_EXPIRE_DAYS = CONFIG.get('TOKEN_EXPIRE_DAYS')
-SECRET_KEY = CONFIG.get('SECRET_KEY')
-ALGORITHM = CONFIG.get('ALGORITHM')
+config: Config = Config.get_instance()
 PWD_CONTEXT = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
 
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(timezone.utc) + timedelta(days=config.get('TOKEN_EXPIRE_DAYS'))
     to_encode.update({'exp': expire})
-    encode_jwt = jwt.encode(to_encode, key=SECRET_KEY, algorithm=ALGORITHM)
+    encode_jwt = jwt.encode(to_encode, key=config.get('SECRET_KEY'), algorithm=config.get('ALGORITHM'))
     return encode_jwt
 
 
@@ -338,4 +335,173 @@ NoUserIdException = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                   detail='Не найден ID пользователя')
 
 ForbiddenException = HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав!')
+```
+
+## Описание файла с зависимостями
+
+```py
+# app/users/dependencies.py
+
+from typing import Annotated
+from fastapi import Request, HTTPException, status, Depends
+from jose import ExpiredSignatureError, jwt, JWTError
+from datetime import  datetime, timezone
+from app.exceptions import TokenNotFoundException, UserNoteFoundException, NoJwtException, NoUserIdException, TokenExpiredException
+from app.users.dao import UserDAO
+from simple_py_config import Config
+
+from app.users.models import User
+
+config: Config = Config.get_instance()
+
+
+def get_token(request: Request):
+    token = request.cookies.get('user_access_token')
+    if not token:
+        raise TokenNotFoundException
+    return token
+
+
+async def get_current_user(token: Annotated[str, Depends(get_token)]) -> User:
+    try:
+        payload = jwt.decode(
+            token, 
+            config.get('SECRET_KEY'), 
+            config.get('ALGORITHM')
+            )
+    except ExpiredSignatureError:
+        raise TokenExpiredException()
+    except JWTError:
+        raise NoJwtException
+    
+    user_id: str = payload.get('sub')
+    if not user_id:
+        raise NoUserIdException
+    
+    user = await UserDAO.find_one_or_none_by_id(int(user_id))
+    if not user:
+        raise UserNoteFoundException
+    return user
+```
+
+## Код файла main.py
+
+```py
+# app/main.py
+
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
+from fastapi.exceptions import HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from app.exceptions import TokenExpiredException, TokenNotFoundException
+from app.users.router import router as users_router
+from app.chat.router import router as chat_router
+from simple_py_config import Config
+
+config = Config()
+config.from_dot_env_file('./.env')
+
+app = FastAPI()
+app.mount('/static', StaticFiles(directory='app/static'), name='static')
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['*'],
+    allow_credentials=True,
+    allow_methods=['*'],
+    allow_headers=['*']
+)
+
+app.include_router(users_router)
+app.include_router(chat_router)
+
+@app.get('/')
+async def redirect_to_auth():
+    return RedirectResponse(url='/auth')
+
+@app.exception_handler(TokenExpiredException)
+async def token_expired_exception_handler(
+    request: Request, 
+    exc: HTTPException
+    ):
+    return RedirectResponse(url='/auth')
+
+@app.exception_handler(TokenNotFoundException)
+async def token_not_found_exception_handler(
+    request: Request,
+    exc: HTTPException
+    ):
+    return RedirectResponse('/auth')
+```
+
+## опишем схемы Pydantic для работы с запросами для регистрации и авторизации пользователей
+
+```py
+# app/users/schemas.py
+
+from pydantic import BaseModel, EmailStr, Field
+
+class SInUserRegister(BaseModel):
+    email: EmailStr = Field(..., description='Электронная почта')
+    password: str = Field(..., min_length=5, max_length=50, description='Пароль от 5 до 50 знаков')
+    password_check: str = Field(..., min_length=5, max_length=50, description='Пароль от 5 до 50 знаков')
+    name: str = Field(..., min_length=3, max_length=50, description='Имя, от 3 до 50 знаков')
+
+class SInUserAuth(BaseModel):
+    email: EmailStr = Field(..., description='Электронная почта')
+    password: str = Field(..., min_length=5, max_length=50, description='Пароль от 5 до 50 знаков')
+```
+
+### Эндпоинты для работы с пользователями (регистрация и авторизация)
+
+```py
+# app/users/router
+
+from fastapi import  APIRouter, Response
+from fastapi.requests import Request
+from fastapi.responses import HTMLResponse
+from app.exceptions import UserAlreadyExistException, IncorrectEmailOrPasswordException, PasswordMismatchException
+from app.users.auth import get_password_hash, authenticate_user, create_access_token
+from app.users.dao import UserDAO
+from app.users.models import User
+from app.users.schemas import SInUserAuth, SInUserRegister
+
+router = APIRouter(prefix='/auth', tags=['Auth'])
+
+@router.post('/register/')
+async def register_user(user_data: SInUserRegister) -> dict:
+    user: User = await UserDAO.find_one_or_none(email=user_data.email)
+
+    if user:
+        raise UserAlreadyExistException
+    
+    if user_data.password != user_data.password_check:
+        raise PasswordMismatchException
+    
+    hashed_password = get_password_hash(user_data.password)
+    
+    await UserDAO.add(
+        name=user_data.name,
+        email=user_data.email,
+        hashed_password=hashed_password
+    )
+    
+    return {'message': 'Вы успешно зарегистрированы'}
+
+
+@router.post('/login/')
+async def auth_user(response: Response, user_data: SInUserAuth):
+    check = await authenticate_user(email=user_data.email, password=user_data.password)
+    if check is None:
+        raise IncorrectEmailOrPasswordException
+    access_token = create_access_token({'sub': str(check.id)})
+    response.set_cookie(key='user_access_token', value=access_token, httponly=True)
+    return {'ok': True, 'access_token': access_token, 'refresh_token': None, 'message': 'Успешная авторизация'}
+
+
+@router.post('/logout/')
+async def logout_user(response: Response):
+    response.delete_cookie(key='user_access_token')
+    return {'message': 'Пользователь успешно вышел из системы'}
 ```

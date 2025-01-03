@@ -8,11 +8,7 @@ from simple_py_config import Config
 
 from app.users.models import User
 
-CONFIG: Config = Config.get_instance()
-TOKEN_EXPIRE_DAYS = CONFIG.get('TOKEN_EXPIRE_DAYS')
-SECRET_KEY = CONFIG.get('SECRET_KEY')
-ALGORITHM = CONFIG.get('ALGORITHM')
-
+config: Config = Config.get_instance()
 
 
 def get_token(request: Request):
@@ -24,7 +20,11 @@ def get_token(request: Request):
 
 async def get_current_user(token: Annotated[str, Depends(get_token)]) -> User:
     try:
-        payload = jwt.decode(token, SECRET_KEY, ALGORITHM)
+        payload = jwt.decode(
+            token, 
+            config.get('SECRET_KEY'), 
+            config.get('ALGORITHM')
+            )
     except ExpiredSignatureError:
         raise TokenExpiredException()
     except JWTError:

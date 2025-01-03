@@ -7,19 +7,16 @@ from app.users.dao import UserDAO
 from app.users.models import User
 
 
-CONFIG: Config = Config.get_instance()
-TOKEN_EXPIRE_DAYS = CONFIG.get('TOKEN_EXPIRE_DAYS')
-SECRET_KEY = CONFIG.get('SECRET_KEY')
-ALGORITHM = CONFIG.get('ALGORITHM')
+config: Config = Config.get_instance()
 PWD_CONTEXT = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
 
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(timezone.utc) + timedelta(days=config.get('TOKEN_EXPIRE_DAYS'))
     to_encode.update({'exp': expire})
-    encode_jwt = jwt.encode(to_encode, key=SECRET_KEY, algorithm=ALGORITHM)
+    encode_jwt = jwt.encode(to_encode, key=config.get('SECRET_KEY'), algorithm=config.get('ALGORITHM'))
     return encode_jwt
 
 
