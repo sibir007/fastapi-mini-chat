@@ -32,7 +32,7 @@ class BaseDAO:
         
     @classmethod
     async def add(cls, **values):
-        async with async_session_maker as session:
+        async with async_session_maker() as session:
             async with session.begin():
                 new_instance = cls.model(**values)
                 session.add(new_instance)

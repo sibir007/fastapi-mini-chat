@@ -14,7 +14,7 @@ config: Config = Config.get_instance()
 def get_token(request: Request):
     token = request.cookies.get('user_access_token')
     if not token:
-        raise TokenNotFoundException
+        raise TokenNotFoundException()
     return token
 
 

@@ -14,7 +14,7 @@ PWD_CONTEXT = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=config.get('TOKEN_EXPIRE_DAYS'))
+    expire = datetime.now(timezone.utc) + timedelta(days=float(config.get('TOKEN_EXPIRE_DAYS')))
     to_encode.update({'exp': expire})
     encode_jwt = jwt.encode(to_encode, key=config.get('SECRET_KEY'), algorithm=config.get('ALGORITHM'))
     return encode_jwt
@@ -28,6 +28,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 async def authenticate_user(email: EmailStr, password: str) -> User | None:
     user: User = await UserDAO.find_one_or_none(email=email)
-    if not user or verify_password(plain_password=password, hashed_password=user.hashed_password):
+    
+    # print(f'in authenticate_user: user {user}')
+    
+    if not user or not verify_password(plain_password=password, hashed_password=user.hashed_password):
         return None
     return user

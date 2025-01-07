@@ -8,4 +8,5 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str]
     hashed_password: Mapped[str]
+    email: Mapped[str]
     

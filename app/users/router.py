@@ -7,7 +7,10 @@ from app.users.dao import UserDAO
 from app.users.models import User
 from app.users.schemas import SInUserAuth, SInUserRegister
 
-router = APIRouter(prefix='/auth', tags=['Auth'])
+router = APIRouter(prefix='/api_v1/auth', tags=['Auth'])
+
+
+
 
 @router.post('/register/')
 async def register_user(user_data: SInUserRegister) -> dict:

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.exceptions import TokenExpiredException, TokenNotFoundException
 from app.users.router import router as users_router
-from app.chat.router import router as chat_router
+# from app.chat.router import router as chat_router
 from simple_py_config import Config
 
 config = Config()
@@ -23,7 +23,11 @@ app.add_middleware(
 )
 
 app.include_router(users_router)
-app.include_router(chat_router)
+# app.include_router(chat_router)
+
+from app.pages.router import router as page_router
+app.include_router(page_router)
+
 
 @app.get('/')
 async def redirect_to_auth():
