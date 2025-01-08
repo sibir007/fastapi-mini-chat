@@ -1,56 +1,3 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
-from fastapi.exceptions import HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from app.exceptions import TokenExpiredException, TokenNotFoundException
-# from app.chat.router import router as chat_router
-from simple_py_config import Config
-
-config = Config()
-config.from_dot_env_file('./.env')
-
-app = FastAPI()
-app.mount('/static', StaticFiles(directory='app/static'), name='static')
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=['*'],
-    allow_credentials=True,
-    allow_methods=['*'],
-    allow_headers=['*']
-)
-
-from app.users.router import auth_api_router, users_api_router
-app.include_router(auth_api_router)
-app.include_router(users_api_router)
-# app.include_router(chat_router)
-
-from app.pages.router import router as page_router
-app.include_router(page_router)
-
-
-# @app.get('/')
-# async def redirect_to_auth():
-#     return RedirectResponse(url='/auth')
-
-# @app.exception_handler(TokenExpiredException)
-# async def token_expired_exception_handler(
-#     request: Request, 
-#     exc: HTTPException
-#     ):
-#     return RedirectResponse(url='/auth')
-
-# @app.exception_handler(TokenNotFoundException)
-# async def token_not_found_exception_handler(
-#     request: Request,
-#     exc: HTTPException
-#     ):
-#     return RedirectResponse('/auth')
-
-
-
-
 from typing import Annotated
 
 from fastapi import (
@@ -64,7 +11,7 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse
 
-# app = FastAPI()
+app = FastAPI()
 
 html = """
 <!DOCTYPE html>

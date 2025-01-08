@@ -11,14 +11,14 @@ from app.users.models import User
 config: Config = Config.get_instance()
 
 
-def get_token(request: Request):
+def get_token_dependence(request: Request):
     token = request.cookies.get('user_access_token')
     if not token:
         raise TokenNotFoundException()
     return token
 
 
-async def get_current_user(token: Annotated[str, Depends(get_token)]) -> User:
+async def get_current_user_dependence(token: Annotated[str, Depends(get_token_dependence)]) -> User:
     try:
         payload = jwt.decode(
             token, 
@@ -38,4 +38,10 @@ async def get_current_user(token: Annotated[str, Depends(get_token)]) -> User:
     if not user:
         raise UserNoteFoundException
     return user
+
+
+async def get_current_user(request: Request) -> User:
+    token = get_token_dependence(request)
+    return await get_current_user_dependence(token)
+    
 
