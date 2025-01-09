@@ -40,8 +40,12 @@ async def get_current_user_dependence(token: Annotated[str, Depends(get_token_de
     return user
 
 
-async def get_current_user(request: Request) -> User:
-    token = get_token_dependence(request)
-    return await get_current_user_dependence(token)
+async def get_current_user_id_dependence(user: Annotated[User, Depends(get_current_user_dependence)]) -> int:
+    return user.id
+
+
+# async def get_current_user(request: Request) -> User:
+#     token = get_token_dependence(request)
+#     return await get_current_user_dependence(token)
     
 

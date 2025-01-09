@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from app.exceptions import UserAlreadyExistException, IncorrectEmailOrPasswordException, PasswordMismatchException
 from app.users.auth import get_password_hash, authenticate_user, create_access_token
 from app.users.dao import UserDAO
-from app.users.dependensies import get_current_user
+from app.users.dependensies import get_current_user_dependence
 from app.users.models import User
 from app.users.schemas import SInUserAuth, SInUserRegister, SOutUser
 
@@ -54,11 +54,11 @@ async def logout_user(response: Response):
 
 
 @users_api_router.get('/me', response_model=SOutUser, description='В случае если пользователь авторизован возвращает имя и email, в противном случае исключение')
-async def get_me(user: Annotated[User, Depends(get_current_user)]):
+async def get_me(user: Annotated[User, Depends(get_current_user_dependence)]):
 
     return user
 
 @users_api_router.get('/all_interlocutors', response_model=list[SOutUser], description='В случае если пользователь авторизован возвращает список всех собеседников')
-async def get_all_interlocutors(user: Annotated[User, Depends(get_current_user)]):
+async def get_all_interlocutors(user: Annotated[User, Depends(get_current_user_dependence)]):
 
     return await UserDAO.find_all_except_user(user)

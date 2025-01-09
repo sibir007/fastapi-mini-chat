@@ -30,6 +30,9 @@ from app.pages.router import router as page_router
 app.include_router(page_router)
 
 
+from app.chat.router import api_chat_router
+app.include_router(api_chat_router)
+
 # @app.get('/')
 # async def redirect_to_auth():
 #     return RedirectResponse(url='/auth')

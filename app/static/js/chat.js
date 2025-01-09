@@ -14,36 +14,10 @@ async function domLoadEventListener(event) {
     const input = document.querySelector('.message-input input');
     const sendButton = document.querySelector('.message-input button');
     const logoutButton = document.querySelector('.logout-btn');
-    
-        // Chat histories for each user
-        const chatHistories = {
-            'sibiriakoff2006_2@yandex.ru': [
-                { type: 'received', text: 'Hey, how are you?' },
-                { type: 'sent', text: 'I\'m good, thanks! How about you?' },
-                { type: 'received', text: 'Great! Would you like to grab lunch?' }
-            ],
-            'sibiriakoff2006_4@yandex.ru': [
-                { type: 'received', text: 'Did you finish the project?' },
-                { type: 'sent', text: 'Yes, I just sent it to you' },
-                { type: 'received', text: 'Perfect, thanks!' }
-            ],
-            'sibiriakoff2006@yandex.ru': [
-                { type: 'sent', text: 'Are we still meeting today?' },
-                { type: 'received', text: 'Yes, at 3 PM' },
-                { type: 'sent', text: 'Great, see you then!' }
-            ],
-            'sibiriakoff2006_3@yandex.ru': [
-                { type: 'received', text: 'Happy Birthday!' },
-                { type: 'sent', text: 'Thank you so much!' },
-                { type: 'received', text: 'Hope you have a great day!' }
-            ],
-            'David Brown': [
-                { type: 'sent', text: 'Can you send me those files?' },
-                { type: 'received', text: 'Sure, sending them now' },
-                { type: 'sent', text: 'Got them, thanks!' }
-            ]
-        };
-    
+
+    // Chat histories for each user
+    // let chatHistories = {};
+
 
     logoutButton.addEventListener('click', async function () {
         const response = await fetch(
@@ -74,26 +48,34 @@ async function domLoadEventListener(event) {
         // window.location.href = "login.html";
     });
 
-
-    const me = await get_me()
+    const me = await get_me();
     if (!me) {
         return
     }
 
-    const interlocutors = await get_interlocutors()
+    const interlocutors = await get_interlocutors();
     if (!interlocutors) {
         return
     }
 
-    fill_user_container(users_container, interlocutors, userItems)
+    fill_user_container(users_container, interlocutors, userItems);
 
-    
+    const messages = await get_messages();
+    if (!messages) {
+        return
+    }
 
-    users_container.childNodes.forEach( user => {
+    // Chat histories for each user
+    const chatHistories = convert_messages_to_chatHistory(messages)
+
+    userItems.forEach(user => {
+        // users_container.childNodes.forEach( user => {
         user.addEventListener('click', function () {
-            const userName = this.textContent;
+            const userId = this.getAttribute('user_id');
+            // userElement.getAttribute('user_id')
 
             userItems.forEach(i => i.classList.remove('active'));
+            // userItems.forEach(i => i.classList.remove('active'));
             this.classList.add('active');
 
             // Show selected user name
@@ -106,9 +88,41 @@ async function domLoadEventListener(event) {
             selectChatMessage.style.display = 'none';
 
             // Display chat history for selected user
-            displayChatHistory(userName, chatHistory, chatHistories);
+            displayChatHistory(userId, chatHistory, chatHistories);
         });
-    })
+    });
+
+    function sendMessage() {
+        const message = input.value.trim();
+        if (message) {
+            const activeUser = document.querySelector('.user-item.active');
+            if (activeUser) {
+                const userName = activeUser.textContent;
+
+                // Add message to chat history array
+                if (!messages[userName]) {
+                    messages[userName] = [];
+                }
+                messages[userName].push({ type: 'sent', text: message });
+
+                // Create and display message element
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message', 'sent');
+                messageElement.textContent = message;
+                chatHistory.appendChild(messageElement);
+
+                input.value = '';
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+        }
+    }
+
+    sendButton.addEventListener('click', sendMessage);
+    input.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
 
 
 }
@@ -268,7 +282,7 @@ async function get_me() {
         // }
     }
 
-    alert(`user id: ${me_result.id}`)
+    // console.info(`user id: ${me_result.id}`)
     return me_result
 }
 
@@ -290,7 +304,7 @@ async function get_interlocutors() {
         return
     }
 
-    alert(`interlocutors_result ${JSON.stringify(interlocutors_result)}`)
+    // console.info(`interlocutors_result ${JSON.stringify(interlocutors_result)}`)
     return interlocutors_result
 }
 
@@ -308,9 +322,11 @@ function fill_user_container(users_container, interlocutors, userItems) {
     );
 }
 
-function displayChatHistory(userName, chatHistory, chatHistories) {
+function displayChatHistory(userId, chatHistory, chatHistories) {
     chatHistory.innerHTML = ''; // Clear current chat history
-    const messages = chatHistories[userName];
+    // console.info(`userId: ${userId}`)
+    const messages = chatHistories[userId];
+    // console.info(`displayChatHistory(userId, chatHistory, chatHistories) messages: ${messages}`)
     if (messages) {
         messages.forEach(message => {
             const messageElement = document.createElement('div');
@@ -322,33 +338,105 @@ function displayChatHistory(userName, chatHistory, chatHistories) {
     chatHistory.scrollTop = chatHistory.scrollHeight;
 }
 
-    // if (interlocutors_result) {
-    //     interlocutors_result.forEach(user => {
-    //         const userElement = document.createElement('div');
-    //         messageElement.classList.add('message', 'sent');
-    //         messageElement.textContent = message;
-    //         chatHistory.appendChild(messageElement);
+async function get_messages() {
+    const messages_response = await fetch(
+        '/api_v1/chat/messages',
+        { method: 'GET' }
+    );
 
-    //     })
-    //     const activeUser = document.querySelector('.user-item.active');
-    //     if (activeUser) {
-    //         const userName = activeUser.textContent;
+    const messages_result = await messages_response.json();
 
-    //         // Add message to chat history array
-    //         if (!chatHistories[userName]) {
-    //             chatHistories[userName] = [];
-    //         }
-    //         chatHistories[userName].push({ type: 'sent', text: message });
+    if (!messages_response.ok) {
+        alert(
+            messages_result.message
+            || messages_result.detail
+            || 'Ошибка выполнения запроса истории сообщений'
+        );
+        return;
+    }
 
-    //         // Create and display message element
-    //         const messageElement = document.createElement('div');
-    //         messageElement.classList.add('message', 'sent');
-    //         messageElement.textContent = message;
-    //         chatHistory.appendChild(messageElement);
+    // console.info(`messages_result ${JSON.stringify(messages_result)}`);
+    return messages_result;
 
-    //         input.value = '';
-    //         chatHistory.scrollTop = chatHistory.scrollHeight;
-    //     }
-    // }
+}
+
+function convert_messages_to_chatHistory(messages) {
+
+    const chatHistories = {};
+    // let ms = [];
+
+    messages.forEach(
+
+        ms => {
+
+            if (!chatHistories[ms.interlocutor_id]) {
+                chatHistories[ms.interlocutor_id] = []
+            }
+
+            chatHistories[ms.interlocutor_id].push({ type: ms.type, created: ms.created, text: ms.content })
+        });
+
+
+    // console.info(chatHistories)
+    return chatHistories;
+    const chatHistoriess = {
+        'sibiriakoff2006_2@yandex.ru': [
+            { type: 'received', text: 'Hey, how are you?' },
+            { type: 'sent', text: 'I\'m good, thanks! How about you?' },
+            { type: 'received', text: 'Great! Would you like to grab lunch?' }
+        ],
+        'sibiriakoff2006_4@yandex.ru': [
+            { type: 'received', text: 'Did you finish the project?' },
+            { type: 'sent', text: 'Yes, I just sent it to you' },
+            { type: 'received', text: 'Perfect, thanks!' }
+        ],
+        'sibiriakoff2006@yandex.ru': [
+            { type: 'sent', text: 'Are we still meeting today?' },
+            { type: 'received', text: 'Yes, at 3 PM' },
+            { type: 'sent', text: 'Great, see you then!' }
+        ],
+        'sibiriakoff2006_3@yandex.ru': [
+            { type: 'received', text: 'Happy Birthday!' },
+            { type: 'sent', text: 'Thank you so much!' },
+            { type: 'received', text: 'Hope you have a great day!' }
+        ],
+        'David Brown': [
+            { type: 'sent', text: 'Can you send me those files?' },
+            { type: 'received', text: 'Sure, sending them now' },
+            { type: 'sent', text: 'Got them, thanks!' }
+        ]
+    };
+
+    return chatHistories
+}
+
+// if (interlocutors_result) {
+//     interlocutors_result.forEach(user => {
+//         const userElement = document.createElement('div');
+//         messageElement.classList.add('message', 'sent');
+//         messageElement.textContent = message;
+//         chatHistory.appendChild(messageElement);
+
+//     })
+//     const activeUser = document.querySelector('.user-item.active');
+//     if (activeUser) {
+//         const userName = activeUser.textContent;
+
+//         // Add message to chat history array
+//         if (!chatHistories[userName]) {
+//             chatHistories[userName] = [];
+//         }
+//         chatHistories[userName].push({ type: 'sent', text: message });
+
+//         // Create and display message element
+//         const messageElement = document.createElement('div');
+//         messageElement.classList.add('message', 'sent');
+//         messageElement.textContent = message;
+//         chatHistory.appendChild(messageElement);
+
+//         input.value = '';
+//         chatHistory.scrollTop = chatHistory.scrollHeight;
+//     }
+// }
 
 // }
