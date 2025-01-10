@@ -19,39 +19,11 @@ async function domLoadEventListener(event) {
     // let chatHistories = {};
 
 
-    logoutButton.addEventListener('click', async function () {
-        const response = await fetch(
-            '/api_v1/auth/logout/',
-            {
-                method: 'POST'
-                // ,
-                // headers: {"Content-Type": "application/json"},
-                // body: JSON.stringify({
-                //     email: email.value,
-                //     password: password.value,
-                //     password_check: confirmPassword.value,
-                //     name: name.value
-                //   })
-            }
-        );
-        window.location.href = '/chat'
-
-        // const result = await response.json();
-
-        // if (response.ok) {
-        //     document.getElementById('registrationForm').reset();
-        //     window.location.href = '/chat/login'
-        // } else {
-        //     alert(result.message || result.detail || 'Ошибка выполнения запроса')
-        // }
-
-        // window.location.href = "login.html";
-    });
-
     const me = await get_me();
     if (!me) {
         return
     }
+    
 
     const interlocutors = await get_interlocutors();
     if (!interlocutors) {
@@ -92,36 +64,92 @@ async function domLoadEventListener(event) {
         });
     });
 
-    function sendMessage() {
+    async function sendMessage() {
         const message = input.value.trim();
         if (message) {
             const activeUser = document.querySelector('.user-item.active');
             if (activeUser) {
-                const userName = activeUser.textContent;
+                const userId = activeUser.getAttribute('user-id');
+                // const userName = activeUser.textContent;
+                response = fetch(
+                    '/api_v1/chat/send_message/',
+                    {
+                        method: 'POST',
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({
+                            interlocutor_id: userId,
+                            content: message
+                            // email: email.value,
+                            // password: password.value,
+                            // password_check: confirmPassword.value,
+                            // name: name.value
+                          })
+                    }
+                )
 
-                // Add message to chat history array
-                if (!messages[userName]) {
-                    messages[userName] = [];
+                const result = await response.json();
+        
+                if (response.ok) {
+                    input.reset();
+                } else {
+                    alert(result.message || result.detail || 'Ошибка выполнения запроса')
+                    // window.location.href = '/chat/login'
                 }
-                messages[userName].push({ type: 'sent', text: message });
 
-                // Create and display message element
-                const messageElement = document.createElement('div');
-                messageElement.classList.add('message', 'sent');
-                messageElement.textContent = message;
-                chatHistory.appendChild(messageElement);
+                // // Add message to chat history array
+                // if (!chatHistories[userId]) {
+                //     chatHistories[userId] = [];
+                // }
+                // messages[userId].push({ type: 'sent', text: message });
 
-                input.value = '';
-                chatHistory.scrollTop = chatHistory.scrollHeight;
+                // // Create and display message element
+                // const messageElement = document.createElement('div');
+                // messageElement.classList.add('message', 'sent');
+                // messageElement.textContent = message;
+                // chatHistory.appendChild(messageElement);
+
+                // input.value = '';
+                // chatHistory.scrollTop = chatHistory.scrollHeight;
             }
         }
     }
 
     sendButton.addEventListener('click', sendMessage);
+
     input.addEventListener('keypress', function (e) {
         if (e.key === 'Enter') {
             sendMessage();
         }
+    });
+
+
+    logoutButton.addEventListener('click', async function () {
+        const response = await fetch(
+            '/api_v1/auth/logout/',
+            {
+                method: 'POST'
+                // ,
+                // headers: {"Content-Type": "application/json"},
+                // body: JSON.stringify({
+                //     email: email.value,
+                //     password: password.value,
+                //     password_check: confirmPassword.value,
+                //     name: name.value
+                //   })
+            }
+        );
+        window.location.href = '/chat'
+
+        // const result = await response.json();
+
+        // if (response.ok) {
+        //     document.getElementById('registrationForm').reset();
+        //     window.location.href = '/chat/login'
+        // } else {
+        //     alert(result.message || result.detail || 'Ошибка выполнения запроса')
+        // }
+
+        // window.location.href = "login.html";
     });
 
 
@@ -313,7 +341,7 @@ function fill_user_container(users_container, interlocutors, userItems) {
         user => {
             const userElement = document.createElement('div');
             userElement.classList.add('user-item');
-            userElement.setAttribute('user_id', user.id);
+            userElement.setAttribute('user-id', user.id);
             userElement.textContent = user.email;
             users_container.appendChild(userElement)
             userItems.push(userElement)
@@ -361,6 +389,15 @@ async function get_messages() {
 }
 
 function convert_messages_to_chatHistory(messages) {
+    
+    /* in message format
+        {
+            type: str 'received' or 'sent'
+            created: datetime
+            interlocutor_id: int
+            content: str
+        }
+    */
 
     const chatHistories = {};
     // let ms = [];

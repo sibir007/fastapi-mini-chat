@@ -11,7 +11,7 @@ class BaseDAO:
         async with async_session_maker() as session:
             query = select(cls.model).filter_by(id=data_id)
             result = await session.execute(query)
-            return result.scalar_one_or_none()
+        return result.scalar_one_or_none()
         
         
     @classmethod
@@ -19,7 +19,7 @@ class BaseDAO:
         async with async_session_maker() as session:
             query = select(cls.model).filter_by(**filter_by)
             result = await session.execute(query)
-            return result.scalar_one_or_none()
+        return result.scalar_one_or_none()
 
 
     @classmethod
@@ -27,7 +27,7 @@ class BaseDAO:
         async with async_session_maker() as session:
             query = select(cls.model).filter_by(**filter_by)
             result = await session.execute(query)
-            return result.scalars().all()
+        return result.scalars().all()
         
         
     @classmethod
@@ -41,6 +41,6 @@ class BaseDAO:
                 except Exception as e:
                     await session.rollback()
                     raise e
-                return new_instance
+        return new_instance
 
             
