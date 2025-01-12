@@ -29,13 +29,19 @@ class ConnectionManager:
         self.active_connections[user_id].append(websocket)
 
     def disconnect(self, user_id: int, websocket: WebSocket):
-        self.active_connections[user_id].remove(websocket)
-        if not self.active_connections[user_id]:
+        if (connection_list:=self.active_connections.get(user_id)) is None:
+            return
+        connection_list.remove(websocket)
+        if not connection_list:
             del self.active_connections[user_id]
 
     async def send_personal_message(self, user_id: int, message: dict):
-        for connection in self.active_connections[user_id]:
-            connection.send_json(message)
+        if (connection_list:=self.active_connections.get(user_id)) is None:
+            return
+        
+        for connection in connection_list:
+            await connection.send_json(message)
+    
     async def broadcast(self, message: dict):
         for user_id, connection_list in self.active_connections.items():
             for connection in connection_list:

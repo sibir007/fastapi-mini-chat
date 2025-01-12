@@ -45,9 +45,9 @@ async def send_message(
     
     # # ws_message format
     # {
-    #     'type': 'new_message',
-    #     'message': {
-    #         type: str 'received' or 'sent'
+    #     'type': str ('new_message', 'new_user'),
+    #     'message': { # for 'new_message' type
+    #         type: str ('received' or 'sent')
     #         created: datetime
     #         interlocutor_id: int
     #         content: str
@@ -58,8 +58,8 @@ async def send_message(
     received_out_message = _create_received_out_message(new_message)
     ws_sent_message = _create_ws_out_message(sent_out_message)
     ws_received_message = _create_ws_out_message(received_out_message)
-    ws_manager.send_personal_message(sender_id, ws_sent_message)
-    ws_manager.send_personal_message(new_message.recipient_id, ws_received_message)
+    await ws_manager.send_personal_message(sender_id, ws_sent_message)
+    await ws_manager.send_personal_message(new_message.recipient_id, ws_received_message)
     
     return {'detail': 'Сообщение успешно отправлено'}
 

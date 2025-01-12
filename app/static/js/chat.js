@@ -14,7 +14,8 @@ async function domLoadEventListener(event) {
     const input = document.querySelector('.message-input input');
     const sendButton = document.querySelector('.message-input button');
     const logoutButton = document.querySelector('.logout-btn');
-
+    let websocket = null;
+    
     // Chat histories for each user
     // let chatHistories = {};
 
@@ -43,8 +44,9 @@ async function domLoadEventListener(event) {
     userItems.forEach(user => {
         // users_container.childNodes.forEach( user => {
         user.addEventListener('click', function () {
-            const userId = this.getAttribute('user_id');
+            const userId = this.getAttribute('user-id');
             // userElement.getAttribute('user_id')
+            // console.info(userId)
 
             userItems.forEach(i => i.classList.remove('active'));
             // userItems.forEach(i => i.classList.remove('active'));
@@ -71,7 +73,7 @@ async function domLoadEventListener(event) {
             if (activeUser) {
                 const userId = activeUser.getAttribute('user-id');
                 // const userName = activeUser.textContent;
-                response = fetch(
+                const response = await fetch(
                     '/api_v1/chat/send_message/',
                     {
                         method: 'POST',
@@ -87,10 +89,10 @@ async function domLoadEventListener(event) {
                     }
                 )
 
-                const result = await response.json();
+                const result = await response.json()
         
                 if (response.ok) {
-                    input.reset();
+                    input.value = '';
                 } else {
                     alert(result.message || result.detail || 'Ошибка выполнения запроса')
                     // window.location.href = '/chat/login'
@@ -116,12 +118,11 @@ async function domLoadEventListener(event) {
 
     sendButton.addEventListener('click', sendMessage);
 
-    input.addEventListener('keypress', function (e) {
+    input.addEventListener('keypress', async function (e) {
         if (e.key === 'Enter') {
-            sendMessage();
+            await sendMessage();
         }
     });
-
 
     logoutButton.addEventListener('click', async function () {
         const response = await fetch(
@@ -152,8 +153,41 @@ async function domLoadEventListener(event) {
         // window.location.href = "login.html";
     });
 
+    
+    await connectWebSocket(websocket);
+
+    if (websocket) {
+
+        websocket.onopen = () => console.info(`websocket соединение установлено`);
+        websocket.onmessage = (event) => {
+            const in_message = JSON.parse(event.data);
+            const message_type = in_message.type
+            if (message_type == 'new_message') {
+                process_new_message_message(in_message)
+            }
+            else if (message_type == 'new_user') {
+                process_new_user_message(in_message)
+            }
+            else {
+                alert(`Не поддерживаемый тип сообщения: ${message_type}`)
+            }
+        }
+        websocket.onclose = (event) => {
+            alert(`[close] Соединение закрыто, код=${event.code} причина=${event.reason}`);
+        }
+    }
+    websocket = WebSocket
+
 
 }
+
+
+async function connectWebSocket(websocket) {
+    if (websocket) {
+        websocket.close();
+    }
+}
+
 
 
 document.addEventListener('DOM', function () {
@@ -291,6 +325,11 @@ document.addEventListener('DOM', function () {
         // window.location.href = "login.html";
     });
 });
+
+
+function process_new_message_message(in_message){
+
+}
 
 
 async function get_me() {

@@ -30,17 +30,52 @@ class BaseDAO:
         return result.scalars().all()
         
         
+    # @classmethod
+    # async def add(cls, **values):
+    #     async with async_session_maker() as session:
+            
+    #         async with session.begin():
+    #             new_instance = cls.model(**values)
+    #             session.add(new_instance)
+    #             print(f'async def add(cls, **values): new_instance.id: {new_instance.id}')
+    #             # _cub_custom(new_instance)
+    #             # try:
+    #             #     print(f'async def add(cls, **values): new_instance.sender_id: {new_instance.sender_id}')
+    #             #     await session.commit()
+    #             #     print(f'async def add(cls, **values): new_instance.id: {new_instance.id}')
+    #             # except Exception as e:
+    #             #     await session.rollback()
+    #             #     raise e
+                
+    #     return new_instance
+
     @classmethod
     async def add(cls, **values):
         async with async_session_maker() as session:
             async with session.begin():
                 new_instance = cls.model(**values)
                 session.add(new_instance)
-                try:
-                    await session.commit()
-                except Exception as e:
-                    await session.rollback()
-                    raise e
+                # await session.commit()
+        # async with session.begin():
+        #     new_instance = cls.model(**values)
+        #     session.add(new_instance)
+        #     print(f'async def add(cls, **values): new_instance.id: {new_instance.id}')
+            # _cub_custom(new_instance)
+            # session.begin()
+            # async with session.begin():
+            #     try:                    
+            #     print(f'async def add(cls, **values): new_instance.id: {new_instance.id}')
+            #     print(f'async def add(cls, **values): new_instance.sender_id: {new_instance.sender_id}')
+            #     await session.commit()
+            #     print(f'async def add(cls, **values): new_instance.id: {new_instance.id}')
+            #     raise Exception()
+            # except Exception as e:
+            #     await session.rollback()
+            #     raise e
+                
         return new_instance
 
-            
+
+
+    # @classmethod
+    # def
