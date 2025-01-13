@@ -9,6 +9,7 @@ websockets==14.1
 aiosqlite==0.20.0
 Jinja2==3.1.5
 simple_py_config==0.0.1
+aiosqlite==0.20.0
 # (.venv) dima@dima-Nitro-AN515-52:~/python/projects/fastapi-mini-chat$ pip freeze
 # aiosqlite==0.20.0
 # alembic==1.14.0

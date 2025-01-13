@@ -25,7 +25,9 @@ class ConnectionManager:
         self.active_connections: dict[int, list[WebSocket]]  = {}
 
     async def connect(self, user_id: int, websocket: WebSocket):
+        print(f'async def connect(self, user_id: int, websocket: WebSocket): pre')
         await websocket.accept()
+        print(f'async def connect(self, user_id: int, websocket: WebSocket): past')
         self.active_connections[user_id].append(websocket)
 
     def disconnect(self, user_id: int, websocket: WebSocket):
@@ -55,7 +57,9 @@ ws_router = APIRouter(prefix='/ws', tags=['Websocket'])
 
 ws_router.websocket('/connect/{user_id}')
 async def websocket_endpoint(websocket: WebSocket, user_id: int):
+    print(f'async def websocket_endpoint(websocket: WebSocket, user_id: int): pre')
     await manager.connect(user_id, websocket)
+    print(f'async def websocket_endpoint(websocket: WebSocket, user_id: int): past')
     try:
         while True:
             await websocket.receive()

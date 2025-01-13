@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocketDisconnect
 from fastapi.responses import RedirectResponse
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +21,7 @@ app.add_middleware(
     allow_headers=['*']
 )
 
+from app.users.dependensies import get_current_user_id_dependence
 from app.users.router import auth_api_router, users_api_router
 app.include_router(auth_api_router)
 app.include_router(users_api_router)
@@ -32,6 +33,9 @@ app.include_router(page_router)
 
 from app.chat.router import api_chat_router
 app.include_router(api_chat_router)
+
+# from app.websocket import ws_router
+# app.include_router(ws_router)
 
 # @app.get('/')
 # async def redirect_to_auth():
@@ -114,35 +118,87 @@ html = """
 """
 
 
-@app.get("/")
-async def get():
-    return HTMLResponse(html)
+# @app.get("/")
+# async def get():
+#     return HTMLResponse(html)
 
 
-async def get_cookie_or_token(
-    websocket: WebSocket,
-    session: Annotated[str | None, Cookie()] = None,
-    token: Annotated[str | None, Query()] = None,
-):
-    if session is None and token is None:
-        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
-    return session or token
+# async def get_cookie_or_token(
+#     websocket: WebSocket,
+#     session: Annotated[str | None, Cookie()] = None,
+#     token: Annotated[str | None, Query()] = None,
+# ):
+#     if session is None and token is None:
+#         raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+#     return session or token
 
 
-@app.websocket("/items/{item_id}/ws")
-async def websocket_endpoint(
-    *,
-    websocket: WebSocket,
-    item_id: str,
-    q: int | None = None,
-    cookie_or_token: Annotated[str, Depends(get_cookie_or_token)],
-):
-    await websocket.accept()
-    while True:
-        data = await websocket.receive_text()
-        await websocket.send_text(
-            f"Session cookie or query token value is: {cookie_or_token}"
-        )
-        if q is not None:
-            await websocket.send_text(f"Query parameter q is: {q}")
-        await websocket.send_text(f"Message text was: {data}, for item ID: {item_id}")
+# @app.websocket("/items/{item_id}/ws")
+# async def websocket_endpoint(
+#     *,
+#     websocket: WebSocket,
+#     item_id: str,
+#     q: int | None = None,
+#     cookie_or_token: Annotated[str, Depends(get_cookie_or_token)],
+# ):
+#     await websocket.accept()
+#     while True:
+#         data = await websocket.receive_text()
+#         await websocket.send_text(
+#             f"Session cookie or query token value is: {cookie_or_token}"
+#         )
+#         if q is not None:
+#             await websocket.send_text(f"Query parameter q is: {q}")
+#         await websocket.send_text(f"Message text was: {data}, for item ID: {item_id}")
+
+
+class ConnectionManager:
+    def __init__(self):
+        
+        self.active_connections: dict[int, list[WebSocket]]  = {}
+
+    async def connect(self, user_id: int, websocket: WebSocket):
+        print(f'async def connect(self, user_id: int, websocket: WebSocket): pre')
+        await websocket.accept()
+        print(f'async def connect(self, user_id: int, websocket: WebSocket): past')
+        self.active_connections[user_id].append(websocket)
+
+    def disconnect(self, user_id: int, websocket: WebSocket):
+        if (connection_list:=self.active_connections.get(user_id)) is None:
+            return
+        connection_list.remove(websocket)
+        if not connection_list:
+            del self.active_connections[user_id]
+
+    async def send_personal_message(self, user_id: int, message: dict):
+        if (connection_list:=self.active_connections.get(user_id)) is None:
+            return
+        
+        for connection in connection_list:
+            await connection.send_json(message)
+    
+    async def broadcast(self, message: dict):
+        for user_id, connection_list in self.active_connections.items():
+            for connection in connection_list:
+                await connection.send_json(message)
+
+
+manager = ConnectionManager()
+
+# ws_router = APIRouter(prefix='/ws', tags=['Websocket'])
+
+
+app.websocket('/ws/connect/{user_id}', name='WS')
+async def websocket_endpoint(*,
+    websocket: WebSocket, user_id: Annotated[int, Depends(get_current_user_id_dependence)]):
+    print(f'async def websocket_endpoint(websocket: WebSocket, user_id: int): pre')
+    await manager.connect(user_id, websocket)
+    print(f'async def websocket_endpoint(websocket: WebSocket, user_id: int): past')
+    try:
+        while True:
+            await websocket.receive()
+            # websocket
+    except WebSocketDisconnect:
+        manager.disconnect(user_id, websocket)
+
+    

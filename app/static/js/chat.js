@@ -14,7 +14,8 @@ async function domLoadEventListener(event) {
     const input = document.querySelector('.message-input input');
     const sendButton = document.querySelector('.message-input button');
     const logoutButton = document.querySelector('.logout-btn');
-    let websocket = null;
+    let activUserId = null;
+    // let websocket = null;
     
     // Chat histories for each user
     // let chatHistories = {};
@@ -44,7 +45,7 @@ async function domLoadEventListener(event) {
     userItems.forEach(user => {
         // users_container.childNodes.forEach( user => {
         user.addEventListener('click', function () {
-            const userId = this.getAttribute('user-id');
+            activUserId = this.getAttribute('user-id');
             // userElement.getAttribute('user_id')
             // console.info(userId)
 
@@ -62,11 +63,11 @@ async function domLoadEventListener(event) {
             selectChatMessage.style.display = 'none';
 
             // Display chat history for selected user
-            displayChatHistory(userId, chatHistory, chatHistories);
+            displayChatHistory(activUserId, chatHistory, chatHistories);
         });
     });
 
-    async function sendMessage() {
+    async function sendMessageEventListenr() {
         const message = input.value.trim();
         if (message) {
             const activeUser = document.querySelector('.user-item.active');
@@ -88,7 +89,7 @@ async function domLoadEventListener(event) {
                           })
                     }
                 )
-
+    
                 const result = await response.json()
         
                 if (response.ok) {
@@ -97,30 +98,30 @@ async function domLoadEventListener(event) {
                     alert(result.message || result.detail || 'Ошибка выполнения запроса')
                     // window.location.href = '/chat/login'
                 }
-
+    
                 // // Add message to chat history array
                 // if (!chatHistories[userId]) {
                 //     chatHistories[userId] = [];
                 // }
                 // messages[userId].push({ type: 'sent', text: message });
-
+    
                 // // Create and display message element
                 // const messageElement = document.createElement('div');
                 // messageElement.classList.add('message', 'sent');
                 // messageElement.textContent = message;
                 // chatHistory.appendChild(messageElement);
-
+    
                 // input.value = '';
                 // chatHistory.scrollTop = chatHistory.scrollHeight;
             }
         }
     }
 
-    sendButton.addEventListener('click', sendMessage);
+    sendButton.addEventListener('click', sendMessageEventListenr);
 
     input.addEventListener('keypress', async function (e) {
         if (e.key === 'Enter') {
-            await sendMessage();
+            await sendMessageEventListenr();
         }
     });
 
@@ -154,40 +155,224 @@ async function domLoadEventListener(event) {
     });
 
     
-    await connectWebSocket(websocket);
+    // await connecAndConfigurtWebSocket(websocket, activUserId, chatHistories, chatHistory, me.id);
+    const websocket = await connecAndConfigurtWebSocket(activUserId, chatHistories, chatHistory, me.id);
 
-    if (websocket) {
-
-        websocket.onopen = () => console.info(`websocket соединение установлено`);
-        websocket.onmessage = (event) => {
-            const in_message = JSON.parse(event.data);
-            const message_type = in_message.type
-            if (message_type == 'new_message') {
-                process_new_message_message(in_message)
-            }
-            else if (message_type == 'new_user') {
-                process_new_user_message(in_message)
-            }
-            else {
-                alert(`Не поддерживаемый тип сообщения: ${message_type}`)
-            }
-        }
-        websocket.onclose = (event) => {
-            alert(`[close] Соединение закрыто, код=${event.code} причина=${event.reason}`);
-        }
-    }
-    websocket = WebSocket
 
 
 }
 
+async function connecAndConfigurtWebSocket(activUserId, chatHistories, chatHistory, me_id) {
+    // async function connecAndConfigurtWebSocket(websocket, activUserId, chatHistories, chatHistory, me_id) {
+    // if (websocket) {
+    // }
+    // if (websocket) {
+    //     websocket.close();
+    // }
+    console.info(window.location.host)
+    const websocket = new WebSocket(`ws://${window.location.host}/ws/connect`)
+    // const websocket = new WebSocket(`wss://${window.location.host}/ws/connect/${me_id}`)
 
-async function connectWebSocket(websocket) {
-    if (websocket) {
-        websocket.close();
+    websocket.onopen = () => console.info(`websocket соединение установлено`);
+    websocket.onmessage = (event) => {
+        const in_message = JSON.parse(event.data);
+        const message_type = in_message.type
+        if (message_type == 'new_message') {
+            process_new_message_message(in_message, activUserId, chatHistories, chatHistory)
+        }
+        else if (message_type == 'new_user') {
+            process_new_user_message(in_message)
+        }
+        else {
+            alert(`Не поддерживаемый тип сообщения: ${message_type}`)
+        }
+    }
+    websocket.onclose = (event) => {
+        console.info(`[close] Соединение закрыто, код=${event.code} причина=${event.reason}`);
+    }
+    websocket.onerror = (e) => {
+        console.error(e)
+    }
+
+    return websocket
+   
+}
+
+function process_new_user_message(in_message) {
+
+}
+
+function process_new_message_message(in_message, activUserId, chatHistories, chatHistory){
+    ms = in_message.message
+    add_message_to_chat_Histories(ms, chatHistories)
+    if (ms.interlocutor_id == activUserId){
+        add_message_to_chat_chistory(ms, chatHistory, true)
+    }
+
+}
+
+
+async function get_me() {
+    const me_response = await fetch(
+        '/api_v1/users/me',
+        { method: 'GET' }
+    );
+
+    const me_result = await me_response.json();
+
+    if (!me_response.ok) {
+        alert(me_result.message || me_result.detail || 'Ошибка выполнения запроса авторизации')
+        window.location.href = '/chat/login'
+        return
+        //     document.getElementById('registrationForm').reset();
+        // } else {
+        // }
+    }
+
+    // console.info(`user id: ${me_result.id}`)
+    return me_result
+}
+
+async function get_interlocutors() {
+
+    const interlocutors_response = await fetch(
+        '/api_v1/users/all_interlocutors',
+        { method: 'GET' }
+    )
+
+    const interlocutors_result = await interlocutors_response.json()
+
+    if (!interlocutors_response.ok) {
+        alert(
+            interlocutors_result.message
+            || interlocutors_result.detail
+            || 'Ошибка выполнения запроса собеседников'
+        )
+        return
+    }
+
+    // console.info(`interlocutors_result ${JSON.stringify(interlocutors_result)}`)
+    return interlocutors_result
+}
+
+function fill_user_container(users_container, interlocutors, userItems) {
+    interlocutors.forEach(
+        user => {
+            const userElement = document.createElement('div');
+            userElement.classList.add('user-item');
+            userElement.setAttribute('user-id', user.id);
+            userElement.textContent = user.email;
+            users_container.appendChild(userElement)
+            userItems.push(userElement)
+            // userElement.attri
+        }
+    );
+}
+
+function displayChatHistory(activUserId, chatHistory, chatHistories) {
+    chatHistory.innerHTML = ''; // Clear current chat history
+    // console.info(`userId: ${userId}`)
+    const messages = chatHistories[activUserId];
+    // console.info(`displayChatHistory(userId, chatHistory, chatHistories) messages: ${messages}`)
+    if (messages) {
+        messages.forEach(message => add_message_to_chat_chistory(message, chatHistory));
+    }
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+
+function add_message_to_chat_chistory(message, chatHistory, scrollTop=false) {
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', message.type);
+    messageElement.textContent = message.text;
+    chatHistory.appendChild(messageElement);
+    if (scrollTop) {
+        chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 }
 
+
+async function get_messages() {
+    const messages_response = await fetch(
+        '/api_v1/chat/messages',
+        { method: 'GET' }
+    );
+
+    const messages_result = await messages_response.json();
+
+    if (!messages_response.ok) {
+        alert(
+            messages_result.message
+            || messages_result.detail
+            || 'Ошибка выполнения запроса истории сообщений'
+        );
+        return;
+    }
+
+    // console.info(`messages_result ${JSON.stringify(messages_result)}`);
+    return messages_result;
+
+}
+
+function convert_messages_to_chatHistory(messages) {
+    
+    /* in message format
+        {
+            type: str 'received' or 'sent'
+            created: datetime
+            interlocutor_id: int
+            content: str
+        }
+    */
+
+    const chatHistories = {};
+    // let ms = [];
+
+    messages.forEach(ms => add_message_to_chat_Histories(ms, chatHistories));
+
+
+    // console.info(chatHistories)
+    return chatHistories;
+}
+
+function add_message_to_chat_Histories(ms, chatHistories){
+    
+    if (!chatHistories[ms.interlocutor_id]) {
+        chatHistories[ms.interlocutor_id] = []
+    }
+
+    chatHistories[ms.interlocutor_id].push({ type: ms.type, created: ms.created, text: ms.content })
+}
+
+// if (interlocutors_result) {
+//     interlocutors_result.forEach(user => {
+//         const userElement = document.createElement('div');
+//         messageElement.classList.add('message', 'sent');
+//         messageElement.textContent = message;
+//         chatHistory.appendChild(messageElement);
+
+//     })
+//     const activeUser = document.querySelector('.user-item.active');
+//     if (activeUser) {
+//         const userName = activeUser.textContent;
+
+//         // Add message to chat history array
+//         if (!chatHistories[userName]) {
+//             chatHistories[userName] = [];
+//         }
+//         chatHistories[userName].push({ type: 'sent', text: message });
+
+//         // Create and display message element
+//         const messageElement = document.createElement('div');
+//         messageElement.classList.add('message', 'sent');
+//         messageElement.textContent = message;
+//         chatHistory.appendChild(messageElement);
+
+//         input.value = '';
+//         chatHistory.scrollTop = chatHistory.scrollHeight;
+//     }
+// }
+
+// }
 
 
 document.addEventListener('DOM', function () {
@@ -326,193 +511,3 @@ document.addEventListener('DOM', function () {
     });
 });
 
-
-function process_new_message_message(in_message){
-
-}
-
-
-async function get_me() {
-    const me_response = await fetch(
-        '/api_v1/users/me',
-        { method: 'GET' }
-    );
-
-    const me_result = await me_response.json();
-
-    if (!me_response.ok) {
-        alert(me_result.message || me_result.detail || 'Ошибка выполнения запроса авторизации')
-        window.location.href = '/chat/login'
-        return
-        //     document.getElementById('registrationForm').reset();
-        // } else {
-        // }
-    }
-
-    // console.info(`user id: ${me_result.id}`)
-    return me_result
-}
-
-async function get_interlocutors() {
-
-    const interlocutors_response = await fetch(
-        '/api_v1/users/all_interlocutors',
-        { method: 'GET' }
-    )
-
-    const interlocutors_result = await interlocutors_response.json()
-
-    if (!interlocutors_response.ok) {
-        alert(
-            interlocutors_result.message
-            || interlocutors_result.detail
-            || 'Ошибка выполнения запроса собеседников'
-        )
-        return
-    }
-
-    // console.info(`interlocutors_result ${JSON.stringify(interlocutors_result)}`)
-    return interlocutors_result
-}
-
-function fill_user_container(users_container, interlocutors, userItems) {
-    interlocutors.forEach(
-        user => {
-            const userElement = document.createElement('div');
-            userElement.classList.add('user-item');
-            userElement.setAttribute('user-id', user.id);
-            userElement.textContent = user.email;
-            users_container.appendChild(userElement)
-            userItems.push(userElement)
-            // userElement.attri
-        }
-    );
-}
-
-function displayChatHistory(userId, chatHistory, chatHistories) {
-    chatHistory.innerHTML = ''; // Clear current chat history
-    // console.info(`userId: ${userId}`)
-    const messages = chatHistories[userId];
-    // console.info(`displayChatHistory(userId, chatHistory, chatHistories) messages: ${messages}`)
-    if (messages) {
-        messages.forEach(message => {
-            const messageElement = document.createElement('div');
-            messageElement.classList.add('message', message.type);
-            messageElement.textContent = message.text;
-            chatHistory.appendChild(messageElement);
-        });
-    }
-    chatHistory.scrollTop = chatHistory.scrollHeight;
-}
-
-async function get_messages() {
-    const messages_response = await fetch(
-        '/api_v1/chat/messages',
-        { method: 'GET' }
-    );
-
-    const messages_result = await messages_response.json();
-
-    if (!messages_response.ok) {
-        alert(
-            messages_result.message
-            || messages_result.detail
-            || 'Ошибка выполнения запроса истории сообщений'
-        );
-        return;
-    }
-
-    // console.info(`messages_result ${JSON.stringify(messages_result)}`);
-    return messages_result;
-
-}
-
-function convert_messages_to_chatHistory(messages) {
-    
-    /* in message format
-        {
-            type: str 'received' or 'sent'
-            created: datetime
-            interlocutor_id: int
-            content: str
-        }
-    */
-
-    const chatHistories = {};
-    // let ms = [];
-
-    messages.forEach(
-
-        ms => {
-
-            if (!chatHistories[ms.interlocutor_id]) {
-                chatHistories[ms.interlocutor_id] = []
-            }
-
-            chatHistories[ms.interlocutor_id].push({ type: ms.type, created: ms.created, text: ms.content })
-        });
-
-
-    // console.info(chatHistories)
-    return chatHistories;
-    const chatHistoriess = {
-        'sibiriakoff2006_2@yandex.ru': [
-            { type: 'received', text: 'Hey, how are you?' },
-            { type: 'sent', text: 'I\'m good, thanks! How about you?' },
-            { type: 'received', text: 'Great! Would you like to grab lunch?' }
-        ],
-        'sibiriakoff2006_4@yandex.ru': [
-            { type: 'received', text: 'Did you finish the project?' },
-            { type: 'sent', text: 'Yes, I just sent it to you' },
-            { type: 'received', text: 'Perfect, thanks!' }
-        ],
-        'sibiriakoff2006@yandex.ru': [
-            { type: 'sent', text: 'Are we still meeting today?' },
-            { type: 'received', text: 'Yes, at 3 PM' },
-            { type: 'sent', text: 'Great, see you then!' }
-        ],
-        'sibiriakoff2006_3@yandex.ru': [
-            { type: 'received', text: 'Happy Birthday!' },
-            { type: 'sent', text: 'Thank you so much!' },
-            { type: 'received', text: 'Hope you have a great day!' }
-        ],
-        'David Brown': [
-            { type: 'sent', text: 'Can you send me those files?' },
-            { type: 'received', text: 'Sure, sending them now' },
-            { type: 'sent', text: 'Got them, thanks!' }
-        ]
-    };
-
-    return chatHistories
-}
-
-// if (interlocutors_result) {
-//     interlocutors_result.forEach(user => {
-//         const userElement = document.createElement('div');
-//         messageElement.classList.add('message', 'sent');
-//         messageElement.textContent = message;
-//         chatHistory.appendChild(messageElement);
-
-//     })
-//     const activeUser = document.querySelector('.user-item.active');
-//     if (activeUser) {
-//         const userName = activeUser.textContent;
-
-//         // Add message to chat history array
-//         if (!chatHistories[userName]) {
-//             chatHistories[userName] = [];
-//         }
-//         chatHistories[userName].push({ type: 'sent', text: message });
-
-//         // Create and display message element
-//         const messageElement = document.createElement('div');
-//         messageElement.classList.add('message', 'sent');
-//         messageElement.textContent = message;
-//         chatHistory.appendChild(messageElement);
-
-//         input.value = '';
-//         chatHistory.scrollTop = chatHistory.scrollHeight;
-//     }
-// }
-
-// }
