@@ -151,52 +151,23 @@ html = """
 #             await websocket.send_text(f"Query parameter q is: {q}")
 #         await websocket.send_text(f"Message text was: {data}, for item ID: {item_id}")
 
+from app.websocket import manager
 
-class ConnectionManager:
-    def __init__(self):
-        
-        self.active_connections: dict[int, list[WebSocket]]  = {}
-
-    async def connect(self, user_id: int, websocket: WebSocket):
-        print(f'async def connect(self, user_id: int, websocket: WebSocket): pre')
-        await websocket.accept()
-        print(f'async def connect(self, user_id: int, websocket: WebSocket): past')
-        self.active_connections[user_id].append(websocket)
-
-    def disconnect(self, user_id: int, websocket: WebSocket):
-        if (connection_list:=self.active_connections.get(user_id)) is None:
-            return
-        connection_list.remove(websocket)
-        if not connection_list:
-            del self.active_connections[user_id]
-
-    async def send_personal_message(self, user_id: int, message: dict):
-        if (connection_list:=self.active_connections.get(user_id)) is None:
-            return
-        
-        for connection in connection_list:
-            await connection.send_json(message)
-    
-    async def broadcast(self, message: dict):
-        for user_id, connection_list in self.active_connections.items():
-            for connection in connection_list:
-                await connection.send_json(message)
-
-
-manager = ConnectionManager()
-
-# ws_router = APIRouter(prefix='/ws', tags=['Websocket'])
-
-
-app.websocket('/ws/connect/{user_id}', name='WS')
+@app.websocket("/ws/connect")
+# app.websocket('/ws/connect')
 async def websocket_endpoint(*,
-    websocket: WebSocket, user_id: Annotated[int, Depends(get_current_user_id_dependence)]):
+    websocket: WebSocket, user_id: int):
     print(f'async def websocket_endpoint(websocket: WebSocket, user_id: int): pre')
     await manager.connect(user_id, websocket)
     print(f'async def websocket_endpoint(websocket: WebSocket, user_id: int): past')
     try:
         while True:
-            await websocket.receive()
+            # mes = await websocket.receive()
+            mes = await websocket.receive_text()
+            if mes == 'close':
+                await websocket.close()
+                manager.disconnect(user_id, websocket)
+                break
             # websocket
     except WebSocketDisconnect:
         manager.disconnect(user_id, websocket)

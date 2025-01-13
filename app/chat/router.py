@@ -26,7 +26,7 @@ async def send_message(
         recipient_id=in_message.interlocutor_id,
         content=in_message.content)
     
-    new_message
+    # new_message
     # user: User = await UserDAO.find_one_or_none(email=user_data.email)
 
     # if user:
@@ -160,7 +160,7 @@ def _create_ws_out_message(out_message: SOutMessage):
 
     return {
         'type': 'new_message',
-        'message': out_message
+        'message': out_message.model_dump_json()
     } 
 
 # @ws_router.post('/send_message/',

@@ -126,6 +126,12 @@ async function domLoadEventListener(event) {
     });
 
     logoutButton.addEventListener('click', async function () {
+        
+        if (websocket) {
+            websocket.send('close')
+            // websocket.close()
+        }
+        
         const response = await fetch(
             '/api_v1/auth/logout/',
             {
@@ -156,7 +162,31 @@ async function domLoadEventListener(event) {
 
     
     // await connecAndConfigurtWebSocket(websocket, activUserId, chatHistories, chatHistory, me.id);
-    const websocket = await connecAndConfigurtWebSocket(activUserId, chatHistories, chatHistory, me.id);
+    // const websocket = await connecAndConfigurtWebSocket(activUserId, chatHistories, chatHistory, me.id);
+    const websocket = new WebSocket(`ws://localhost:8000/ws/connect?user_id=${me.id}`);
+
+    websocket.onopen = () => console.info(`websocket соединение установлено`);
+    websocket.onmessage = (event) => {
+        console.info(`websocket.onmessage = (event) => {`)
+        const in_message = JSON.parse(event.data);
+        const message_type = in_message.type
+        if (message_type == 'new_message') {
+            process_new_message_message(in_message, activUserId, chatHistories, chatHistory)
+        }
+        else if (message_type == 'new_user') {
+            process_new_user_message(in_message)
+        }
+        else {
+            alert(`Не поддерживаемый тип сообщения: ${message_type}`)
+        }
+    }
+    websocket.onclose = (event) => {
+        console.info(`[close] Соединение закрыто, код=${event.code} причина=${event.reason}`);
+    }
+    websocket.onerror = (e) => {
+        console.error(e)
+    }
+
 
 
 
@@ -170,8 +200,8 @@ async function connecAndConfigurtWebSocket(activUserId, chatHistories, chatHisto
     //     websocket.close();
     // }
     console.info(window.location.host)
-    const websocket = new WebSocket(`ws://${window.location.host}/ws/connect`)
-    // const websocket = new WebSocket(`wss://${window.location.host}/ws/connect/${me_id}`)
+    // const websocket = new WebSocket(`ws://${window.location.host}/ws/connect`)
+    const websocket = new WebSocket(`ws://localhost:8000/items/item_id/ws`);
 
     websocket.onopen = () => console.info(`websocket соединение установлено`);
     websocket.onmessage = (event) => {

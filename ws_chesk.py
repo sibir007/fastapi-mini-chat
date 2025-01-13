@@ -1,6 +1,6 @@
 import asyncio
 
-from websockets_proxy import Proxy, proxy_connect
+# from websockets_proxy import Proxy, proxy_connect
 from websockets import connect
 from simple_py_config import Config
 
@@ -19,7 +19,7 @@ async def main():
             print("Your IP:", ip_no_proxy)
     print('.')
     # be sure to create your "Proxy" objects inside an async function
-    proxy = Proxy.from_url(conf.get('VZL_PROXY'))
+    # proxy = Proxy.from_url(conf.get('VZL_PROXY'))
     # async with proxy_connect(CHECKER_URL, proxy=proxy) as ws:
     #     async for msg in ws:
     #         ip_with_proxy = msg

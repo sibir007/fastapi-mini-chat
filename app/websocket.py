@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
 # from app.chat.dao import MessageDAO
 # from app.chat.schemas import MessageType, SInMessage, SOutMessage
-from app.users.dependensies import get_current_user_id_dependence
+# from app.users.dependensies import get_current_user_id_dependence
 # from app.chat.router import send_message
 # from enum import Enum
 # from pydantic import BaseModel, Field
@@ -15,10 +15,6 @@ from app.users.dependensies import get_current_user_id_dependence
 #     type = WSOutMessageType.new_message.value
 #     message: SOutMessage = Field
 
-
-
-
-
 class ConnectionManager:
     def __init__(self):
         
@@ -26,18 +22,21 @@ class ConnectionManager:
 
     async def connect(self, user_id: int, websocket: WebSocket):
         print(f'async def connect(self, user_id: int, websocket: WebSocket): pre')
-        await websocket.accept()
+        await websocket.accept();
+        if self.active_connections.get(user_id) is None:
+            self.active_connections[user_id] = []
         print(f'async def connect(self, user_id: int, websocket: WebSocket): past')
-        self.active_connections[user_id].append(websocket)
+        self.active_connections[user_id].append(websocket);
 
     def disconnect(self, user_id: int, websocket: WebSocket):
         if (connection_list:=self.active_connections.get(user_id)) is None:
             return
-        connection_list.remove(websocket)
+        connection_list.remove(websocket);
         if not connection_list:
             del self.active_connections[user_id]
 
     async def send_personal_message(self, user_id: int, message: dict):
+        print(f'async def send_personal_message(self, user_id: int, message: dict):')
         if (connection_list:=self.active_connections.get(user_id)) is None:
             return
         
@@ -52,19 +51,4 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-ws_router = APIRouter(prefix='/ws', tags=['Websocket'])
-
-
-ws_router.websocket('/connect/{user_id}')
-async def websocket_endpoint(websocket: WebSocket, user_id: int):
-    print(f'async def websocket_endpoint(websocket: WebSocket, user_id: int): pre')
-    await manager.connect(user_id, websocket)
-    print(f'async def websocket_endpoint(websocket: WebSocket, user_id: int): past')
-    try:
-        while True:
-            await websocket.receive()
-            # websocket
-    except WebSocketDisconnect:
-        manager.disconnect(user_id, websocket)
-
-    
+# ws_router = APIRouter(prefix='/ws', tags=['Websocket'])
